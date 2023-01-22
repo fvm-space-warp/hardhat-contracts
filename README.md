@@ -90,3 +90,4 @@ As an example to store most of the data available for a deal run the store-all c
 ```
 yarn hardhat store-all --contract "DEPLOYED FILECOIN_MARKET_CONSUMER CONTRACT ADDRESS HERE" --dealid "707"
 ```
+# hardhat-contracts
