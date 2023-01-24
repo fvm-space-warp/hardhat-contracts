@@ -8,9 +8,12 @@ import {MarketTypes} from "../lib/filecoin-solidity/contracts/v0.8/types/MarketT
 import {Actor, HyperActor} from "../lib/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
 import {Misc} from "../lib/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/governance/utils/Votes.sol";
 
-contract DataDAO {
+contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
     mapping(bytes => bool) public cidSet;
     mapping(bytes => uint256) public cidSizes;
     mapping(bytes => mapping(uint64 => bool)) public cidProviders;
@@ -30,11 +33,14 @@ contract DataDAO {
     uint64 constant DEFAULT_FLAG = 0x00000000;
     uint64 constant METHOD_SEND = 0;
 
-    constructor() {
+    constructor() ERC20("DataToken", "DATA") ERC20Permit("DataToken") {
         owner = msg.sender;
     }
 
-    function fund(uint64 unused) public payable {}
+    function fund() external payable {
+        // 1 -1 conversion for voting power
+        _mint(msg.sender, msg.value);
+    }
 
     function addCID(bytes calldata cidraw, uint256 size) public {
         cidSet[cidraw] = true;
@@ -81,7 +87,7 @@ contract DataDAO {
         //     MarketTypes.GetDealEpochPriceParams({id: deal_id})
         // );
 
-        uint256 reward = 0; // TBD;
+        uint256 reward = 1; // TBD  if there is a way to get the price per epoch and the amount of epochs
 
         sendReward(clientRet.client, reward);
     }
@@ -98,5 +104,23 @@ contract DataDAO {
             emptyParams,
             actorID
         );
+    }
+
+    // The functions below are overrides required by Solidity.
+
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override(ERC20, ERC20Votes) {
+        super._afterTokenTransfer(from, to, amount);
+    }
+
+    function _mint(address to, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._mint(to, amount);
+    }
+
+    function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._burn(account, amount);
     }
 }
