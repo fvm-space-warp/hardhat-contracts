@@ -12,11 +12,22 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/governance/utils/Votes.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
+import {IEncryptionOracle, IEncryptionClient} from "../lib/medusa/EncryptionOracle.sol";
+
+contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
+    IEncryptionOracle public medusaOracle;
+
     mapping(bytes => bool) public cidSet;
     mapping(bytes => uint256) public cidSizes;
     mapping(bytes => mapping(uint64 => bool)) public cidProviders;
+
+    mapping(address => mapping(bytes => uint256)) public pendingAccessRequests;
+
+    mapping(uint256 => uint256) public cipherIdAccess;
+
+    event EntryDecryption(uint256 indexed requestId, Ciphertext ciphertext);
 
     struct Deal {
         bytes32 cid;
@@ -28,13 +39,18 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
 
     mapping(address => uint256) public voterPower;
 
-    address public owner;
-    address constant CALL_ACTOR_ID = 0xfe00000000000000000000000000000000000005;
-    uint64 constant DEFAULT_FLAG = 0x00000000;
-    uint64 constant METHOD_SEND = 0;
+    mapping(bytes => mapping(address => bool)) public cipherIdAccess;
 
-    constructor() ERC20("DataToken", "DATA") ERC20Permit("DataToken") {
-        owner = msg.sender;
+    address public owner;
+    address public constant CALL_ACTOR_ID = 0xfe00000000000000000000000000000000000005;
+    uint64 public constant DEFAULT_FLAG = 0x00000000;
+    uint64 public constant METHOD_SEND = 0;
+
+    constructor(IEncryptionOracle _medusaOracle)
+        ERC20("DataToken", "DATA")
+        ERC20Permit("DataToken")
+    {
+        medusaOracle = _medusaOracle;
     }
 
     function fund() external payable {
@@ -42,19 +58,40 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
         _mint(msg.sender, msg.value);
     }
 
-    function addCID(bytes calldata cidraw, uint256 size) public {
+    function addCID(bytes calldata cidraw, uint256 size) external onlyOwner {
         cidSet[cidraw] = true;
         cidSizes[cidraw] = size;
     }
 
     // function to check if a provider has already claimed a CID
-    function policyOK(bytes memory cidraw, uint64 provider) internal view returns (bool) {
+    function _policyOK(bytes memory cidraw, uint64 provider) internal view returns (bool) {
         bool alreadyStoring = cidProviders[cidraw][provider];
         return !alreadyStoring;
     }
 
+    // These cipherIds are the encryptions of specific messages, we need a way to get the relationship
+    // Between cipherIds and CIDS
+
+    function grantAccess(address _address, uint256 cipherId) external onlyOwner {
+        cipherIdAccess[cipherId][_address] = true;
+    }
+
+    function revokeAccess(address _address, uint256 cipherId) external onlyOwner {
+        cipherIdAccess[cipherId][_address] = false;
+    }
+
+    function decryptmessage(uint256 cipherId, G1Point calldata buyerPublicKey)
+        external
+        payable
+        returns (uint256)
+    {
+        require(cipherIdAccess[cipherId][msg.sender], "Not given access");
+        uint256 requestId = oracle.requestReencryption(cipherId, buyerPublicKey);
+        return requestId;
+    }
+
     // function to authorize a deal for a CID
-    function authorizeData(
+    function _authorizeData(
         bytes memory cidraw,
         uint64 provider,
         uint256 size
@@ -62,7 +99,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
         require(cidSet[cidraw], "CID must be added before authorizing");
         require(cidSizes[cidraw] == size, "Data size must match expected");
         require(
-            policyOK(cidraw, provider),
+            _policyOK(cidraw, provider),
             "Deal failed policy check: has provider already claimed this CID?"
         );
 
@@ -77,7 +114,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
             MarketTypes.GetDealProviderParams({id: deal_id})
         );
 
-        authorizeData(commitmentRet.data, providerRet.provider, commitmentRet.size);
+        _authorizeData(commitmentRet.data, providerRet.provider, commitmentRet.size);
 
         MarketTypes.GetDealClientReturn memory clientRet = MarketAPI.getDealClient(
             MarketTypes.GetDealClientParams({id: deal_id})
@@ -89,10 +126,10 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
 
         uint256 reward = 1; // TBD  if there is a way to get the price per epoch and the amount of epochs
 
-        sendReward(clientRet.client, reward);
+        _sendReward(clientRet.client, reward);
     }
 
-    function sendReward(uint64 actorID, uint256 reward) internal {
+    function _sendReward(uint64 actorID, uint256 reward) internal {
         bytes memory emptyParams = "";
         delete emptyParams;
 
@@ -106,7 +143,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
         );
     }
 
-    // The functions below are overrides required by Solidity.
+    // The functions below are overrides required by Solidity for Governor implementation
 
     function _afterTokenTransfer(
         address from,
@@ -122,5 +159,9 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes {
 
     function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
         super._burn(account, amount);
+    }
+
+    function oracleResult(uint256 requestId, Ciphertext calldata cipher) external onlyOracle {
+        emit EntryDecryption(requestId, cipher);
     }
 }

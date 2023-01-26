@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@glif/filecoin-address": "^2.0.18",
+    "@medusa-network/medusa-sdk": "^0.0.2",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.0",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
