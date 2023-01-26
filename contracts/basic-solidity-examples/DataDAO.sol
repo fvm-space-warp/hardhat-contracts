@@ -25,21 +25,12 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
 
     mapping(address => mapping(bytes => uint256)) public pendingAccessRequests;
 
-    mapping(uint256 => uint256) public cipherIdAccess;
-
     event EntryDecryption(uint256 indexed requestId, Ciphertext ciphertext);
 
-    struct Deal {
-        bytes32 cid;
-        string status;
-        uint64 dealId;
-    }
-
-    mapping(uint256 => Deal) public deals;
-
-    mapping(address => uint256) public voterPower;
-
     mapping(bytes => mapping(address => bool)) public cipherIdAccess;
+
+    //Relationship between CipherIDs and their CIDS
+    mapping(bytes32 => bytes) public cipherIds;
 
     address public owner;
     address public constant CALL_ACTOR_ID = 0xfe00000000000000000000000000000000000005;
@@ -58,6 +49,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         _mint(msg.sender, msg.value);
     }
 
+    // All these CIDS will be for encrypted Files
     function addCID(bytes calldata cidraw, uint256 size) external onlyOwner {
         cidSet[cidraw] = true;
         cidSizes[cidraw] = size;
@@ -69,8 +61,8 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         return !alreadyStoring;
     }
 
-    // These cipherIds are the encryptions of specific messages, we need a way to get the relationship
-    // Between cipherIds and CIDS
+    // These cipherIds are the encryptions of specific messages
+    // We will offchain get the cipherIds and CID
 
     function grantAccess(address _address, uint256 cipherId) external onlyOwner {
         cipherIdAccess[cipherId][_address] = true;
@@ -80,9 +72,14 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         cipherIdAccess[cipherId][_address] = false;
     }
 
-    function decryptmessage(uint256 cipherId, G1Point calldata buyerPublicKey)
-        external
-        payable
+    function addCipherId(bytes32 cipherId, bytes calldata cid) external onlyOwner {
+        require(cidSet[cid], "CID not found");
+        cipherIds[cipherId] = cid;
+    }
+
+    function requestDecryption(uint256 cipherId, G1Point calldata buyerPublicKey)
+        public
+        view
         returns (uint256)
     {
         require(cipherIdAccess[cipherId][msg.sender], "Not given access");
@@ -107,21 +104,21 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     }
 
     // function to claim a bounty for a deal
-    function claimBounty(uint64 deal_id) public {
+    function claimBounty(uint64 dealId) public {
         MarketTypes.GetDealDataCommitmentReturn memory commitmentRet = MarketAPI
-            .getDealDataCommitment(MarketTypes.GetDealDataCommitmentParams({id: deal_id}));
+            .getDealDataCommitment(MarketTypes.GetDealDataCommitmentParams({id: dealId}));
         MarketTypes.GetDealProviderReturn memory providerRet = MarketAPI.getDealProvider(
-            MarketTypes.GetDealProviderParams({id: deal_id})
+            MarketTypes.GetDealProviderParams({id: dealId})
         );
 
         _authorizeData(commitmentRet.data, providerRet.provider, commitmentRet.size);
 
         MarketTypes.GetDealClientReturn memory clientRet = MarketAPI.getDealClient(
-            MarketTypes.GetDealClientParams({id: deal_id})
+            MarketTypes.GetDealClientParams({id: dealId})
         );
 
         // MarketTypes.GetDealEpochPriceReturn memory pricePerEpoch = MarketAPI.getDealTotalPrice(
-        //     MarketTypes.GetDealEpochPriceParams({id: deal_id})
+        //     MarketTypes.GetDealEpochPriceParams({id: dealId})
         // );
 
         uint256 reward = 1; // TBD  if there is a way to get the price per epoch and the amount of epochs
@@ -141,6 +138,10 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
             emptyParams,
             actorID
         );
+    }
+
+    function oracleResult(uint256 requestId, Ciphertext calldata cipher) external onlyOracle {
+        emit EntryDecryption(requestId, cipher);
     }
 
     // The functions below are overrides required by Solidity for Governor implementation
