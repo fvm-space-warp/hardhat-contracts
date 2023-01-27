@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.17;
 
-import {MarketAPI} from "@zondax/filecoin-solidity/contracts/v0.8/MarketAPI.sol";
-import {CommonTypes} from "@zondax/filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
-import {MarketTypes} from "@zondax/filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
-import {Actor} from "@zondax/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
-import {Misc} from "@zondax/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
+import {MarketAPI} from "./lib/filecoin-solidity/contracts/v0.8/MarketAPI.sol";
+import {CommonTypes} from "./lib/filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
+import {MarketTypes} from "./lib/filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
+import {Actor,HyperActor} from "./lib/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
+import {Misc} from "./lib/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
@@ -26,14 +26,13 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
 
     mapping(address => mapping(bytes => uint256)) public pendingAccessRequests;
 
-    event EntryDecryption(uint256 indexed requestId, Ciphertext ciphertext);
+    event EntryDecryption(uint256 indexed requestId, ReencryptedCipher ciphertext);
 
     mapping(bytes => mapping(address => bool)) public cipherIdAccess;
 
     //Relationship between CipherIDs and their CIDS
     mapping(bytes32 => bytes) public cipherIds;
 
-    address public owner;
     address public constant CALL_ACTOR_ID = 0xfe00000000000000000000000000000000000005;
     uint64 public constant DEFAULT_FLAG = 0x00000000;
     uint64 public constant METHOD_SEND = 0;
@@ -74,27 +73,29 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     // We will offchain get the cipherIds and CID
 
     function grantAccess(address _address, uint256 cipherId) external onlyOwner {
-        cipherIdAccess[cipherId][_address] = true;
+        cipherIdAccess[bytes(abi.encodePacked(cipherId))][_address] = true;
     }
 
     function revokeAccess(address _address, uint256 cipherId) external onlyOwner {
-        cipherIdAccess[cipherId][_address] = false;
+        cipherIdAccess[bytes(abi.encodePacked(cipherId))][_address] = false;
     }
 
     function addCipherId(bytes32 cipherId, bytes calldata cid) external onlyOwner {
         require(cidSet[cid], "CID not found");
         cipherIds[cipherId] = cid;
     }
-
+    /* need to check it
     function requestDecryption(uint256 cipherId, G1Point calldata buyerPublicKey)
         public
         view
         returns (uint256)
     {
-        require(cipherIdAccess[cipherId][msg.sender], "Not given access");
+        require(cipherIdAccess[bytes(abi.encodePacked(cipherId))][msg.sender], "Not given access");
         uint256 requestId = oracle.requestReencryption(cipherId, buyerPublicKey);
         return requestId;
     }
+    */
+
 
     // function to authorize a deal for a CID
     function _authorizeData(
@@ -139,7 +140,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         bytes memory emptyParams = "";
         delete emptyParams;
 
-        Actor.callById(
+        HyperActor.call_actor_id(
             METHOD_SEND,
             reward,
             DEFAULT_FLAG,
@@ -149,7 +150,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         );
     }
 
-    function oracleResult(uint256 requestId, Ciphertext calldata cipher) external onlyOracle {
+    function oracleResult(uint256 requestId, ReencryptedCipher calldata cipher) external onlyOracle {
         emit EntryDecryption(requestId, cipher);
     }
 
@@ -171,7 +172,4 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         super._burn(account, amount);
     }
 
-    function oracleResult(uint256 requestId, ReencryptedCipher calldata cipher) external onlyOracle {
-        emit EntryDecryption(requestId, cipher);
-    }
 }
