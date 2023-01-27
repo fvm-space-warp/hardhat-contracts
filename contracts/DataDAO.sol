@@ -5,7 +5,7 @@ pragma solidity ^0.8.17;
 import {MarketAPI} from "./lib/filecoin-solidity/contracts/v0.8/MarketAPI.sol";
 import {CommonTypes} from "./lib/filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
 import {MarketTypes} from "./lib/filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
-import {Actor,HyperActor} from "./lib/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
+import {Actor, HyperActor} from "./lib/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
 import {Misc} from "./lib/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -15,7 +15,6 @@ import "@openzeppelin/contracts/governance/utils/Votes.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./InterfacesMedusa.sol";
-
 
 contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     IEncryptionOracle public oracle;
@@ -37,7 +36,6 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     uint64 public constant DEFAULT_FLAG = 0x00000000;
     uint64 public constant METHOD_SEND = 0;
 
-
     modifier onlyOracle() {
         if (msg.sender != address(oracle)) {
             revert CallbackNotAuthorized();
@@ -55,6 +53,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     function fund() external payable {
         // 1 -1 conversion for voting power
         _mint(msg.sender, msg.value);
+        grantAccess(msg.sender)
     }
 
     // All these CIDS will be for encrypted Files
@@ -72,30 +71,27 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     // These cipherIds are the encryptions of specific messages
     // We will offchain get the cipherIds and CID
 
-    function grantAccess(address _address, uint256 cipherId) external onlyOwner {
-        cipherIdAccess[bytes(abi.encodePacked(cipherId))][_address] = true;
-    }
+    // function grantAccess(address _address, uint256 cipherId) external onlyOwner {
+    //     cipherIdAccess[bytes(abi.encodePacked(cipherId))][_address] = true;
+    // }
 
-    function revokeAccess(address _address, uint256 cipherId) external onlyOwner {
-        cipherIdAccess[bytes(abi.encodePacked(cipherId))][_address] = false;
-    }
+    // function revokeAccess(address _address, uint256 cipherId) external onlyOwner {
+    //     cipherIdAccess[bytes(abi.encodePacked(cipherId))][_address] = false;
+    // }
 
     function addCipherId(bytes32 cipherId, bytes calldata cid) external onlyOwner {
         require(cidSet[cid], "CID not found");
         cipherIds[cipherId] = cid;
     }
-    /* need to check it
+
     function requestDecryption(uint256 cipherId, G1Point calldata buyerPublicKey)
-        public
-        view
+        external payable
         returns (uint256)
     {
-        require(cipherIdAccess[bytes(abi.encodePacked(cipherId))][msg.sender], "Not given access");
+        require(ERC20(address(this)).balanceOf(msg.sender)>0 || msg.value>1, "Not given access");
         uint256 requestId = oracle.requestReencryption(cipherId, buyerPublicKey);
         return requestId;
     }
-    */
-
 
     // function to authorize a deal for a CID
     function _authorizeData(
@@ -150,7 +146,10 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         );
     }
 
-    function oracleResult(uint256 requestId, ReencryptedCipher calldata cipher) external onlyOracle {
+    function oracleResult(uint256 requestId, ReencryptedCipher calldata cipher)
+        external
+        onlyOracle
+    {
         emit EntryDecryption(requestId, cipher);
     }
 
@@ -171,5 +170,4 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
         super._burn(account, amount);
     }
-
 }
