@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.17;
 
-import {MarketAPI} from "../lib/filecoin-solidity/contracts/v0.8/MarketAPI.sol";
-import {CommonTypes} from "../lib/filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
-import {MarketTypes} from "../lib/filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
-import {Actor, HyperActor} from "../lib/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
-import {Misc} from "../lib/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
+import {MarketAPI} from "@zondax/filecoin-solidity/contracts/v0.8/MarketAPI.sol";
+import {CommonTypes} from "@zondax/filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
+import {MarketTypes} from "@zondax/filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
+import {Actor} from "@zondax/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
+import {Misc} from "@zondax/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
@@ -14,10 +14,11 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/governance/utils/Votes.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import {IEncryptionOracle, IEncryptionClient} from "../lib/medusa/EncryptionOracle.sol";
+import "./InterfacesMedusa.sol";
+
 
 contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
-    IEncryptionOracle public medusaOracle;
+    IEncryptionOracle public oracle;
 
     mapping(bytes => bool) public cidSet;
     mapping(bytes => uint256) public cidSizes;
@@ -37,11 +38,19 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     uint64 public constant DEFAULT_FLAG = 0x00000000;
     uint64 public constant METHOD_SEND = 0;
 
+
+    modifier onlyOracle() {
+        if (msg.sender != address(oracle)) {
+            revert CallbackNotAuthorized();
+        }
+        _;
+    }
+
     constructor(IEncryptionOracle _medusaOracle)
         ERC20("DataToken", "DATA")
         ERC20Permit("DataToken")
     {
-        medusaOracle = _medusaOracle;
+        oracle = _medusaOracle;
     }
 
     function fund() external payable {
@@ -130,7 +139,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         bytes memory emptyParams = "";
         delete emptyParams;
 
-        HyperActor.call_actor_id(
+        Actor.callById(
             METHOD_SEND,
             reward,
             DEFAULT_FLAG,
@@ -162,7 +171,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         super._burn(account, amount);
     }
 
-    function oracleResult(uint256 requestId, Ciphertext calldata cipher) external onlyOracle {
+    function oracleResult(uint256 requestId, ReencryptedCipher calldata cipher) external onlyOracle {
         emit EntryDecryption(requestId, cipher);
     }
 }
