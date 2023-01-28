@@ -53,7 +53,6 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
     function fund() external payable {
         // 1 -1 conversion for voting power
         _mint(msg.sender, msg.value);
-        grantAccess(msg.sender)
     }
 
     // All these CIDS will be for encrypted Files

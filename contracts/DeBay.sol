@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./InterfacesMedusa.sol";
 
-contract deBay is IEncryptionClient,Ownable {
+contract DeBay is IEncryptionClient,Ownable {
     /// the address of the Medusa oracle
     IEncryptionOracle public oracle;
 

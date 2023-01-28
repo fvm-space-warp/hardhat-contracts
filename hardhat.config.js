@@ -1,4 +1,5 @@
-require("@nomicfoundation/hardhat-toolbox")
+require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-chai-matchers");
 require("hardhat-deploy")
 require("hardhat-deploy-ethers")
 require("./tasks")
@@ -8,6 +9,12 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
     solidity: "0.8.17",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
     defaultNetwork: "hyperspace",
     networks: {
         hyperspace: {
