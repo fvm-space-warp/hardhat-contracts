@@ -14,7 +14,7 @@ const request = util.promisify(require("request"))
 async function callRpc(method, params) {
   var options = {
     method: "POST",
-    url: "https://api.hyperspace.node.glif.io/rpc/v1",
+    url: "https://endpoints.omniatech.io/v1/arbitrum/goerli/public",
     // url: "http://localhost:1234/rpc/v0",
     headers: {
       "Content-Type": "application/json",
@@ -35,31 +35,34 @@ async function callRpc(method, params) {
 // Filecoin Hyperspace Testnet
 // const medusaAddress = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
 
-const medusaAddress = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
-const provider = new providers.JsonRpcProvider("https://api.hyperspace.node.glif.io/rpc/v1");
+const medusaAddress = "0xf1d5A4481F44fe0818b6E7Ef4A60c0c9b29E3118";
+const provider = new providers.JsonRpcProvider("https://endpoints.omniatech.io/v1/arbitrum/goerli/public");
 const signer = new ethers.Wallet(PRIVATE_KEY).connect(provider);
 // applicationAddress is the dApp contract address for which you are encrypting.
-const applicationAddress = "0x6eFA7a4c3aeEcE2C7a6ee91C17c5b3e3590c5A7F"
+const applicationAddress = "0x7481bFDe9F3f4E9a569399175e61F58B6F0F29BE"
 const main = async () => {
   const priorityFee = await callRpc("eth_maxPriorityFeePerGas")
 
   const medusa = await MedusaPackage.Medusa.init(medusaAddress, signer);
+
+
   // msg is the plaintext message to encrypt as a Uint8Array
-  const msg = new Uint8Array("Hello World!")
-  const { encryptedData, encryptedKey } = await medusa.encrypt(msg, applicationAddress);
+  // const msg = new Uint8Array("Hello World!")
+
+  const buff = new TextEncoder().encode("Hello World")
+
+  await medusa.fetchPublicKey()
+
+  const { encryptedData, encryptedKey } = await medusa.encrypt(buff, applicationAddress);
   console.log(`Data encrypted ${encryptedData}`)
-  const debayContract = await hre.ethers.getContractAt("DeBay", applicationAddress);
+
+  console.log(`Encrypted cypher KEy ${encryptedKey}`)
+
+  const debayContract = await hre.ethers.getContractAt("Debay", applicationAddress);
   console.log(`Contract DeBay loaded from ${debayContract.address}`)
   let price = ethers.utils.parseEther("1");
   console.log(`Submiting encrypted data to DeBay`)
-
-  const testUrl = "ipfs://testCID"
-
-  const cipherID = await debayContract.submitEntry(encryptedKey, price, testUrl, {
-    // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
-    maxPriorityFeePerGas: priorityFee
-  });
-
+  const cipherID = await debayContract.createListing(encryptedKey, price, "ipfs://test");
   console.log(`CipherID ${cipherID}`);
   const { private, public } = await medusa.generateKeypair();
   price = await debayContract.itemToPrice(cipherId);
