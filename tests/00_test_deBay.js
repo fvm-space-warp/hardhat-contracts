@@ -44,6 +44,10 @@ const main = async () => {
   const priorityFee = await callRpc("eth_maxPriorityFeePerGas")
 
   const medusa = await MedusaPackage.Medusa.init(medusaAddress, signer);
+
+
+
+  console.log(medusa);
   // msg is the plaintext message to encrypt as a Uint8Array
   const msg = new Uint8Array("Hello World!")
   const { encryptedData, encryptedKey } = await medusa.encrypt(msg, applicationAddress);
@@ -55,21 +59,38 @@ const main = async () => {
 
   const testUrl = "ipfs://testCID"
 
+  await medusa.signForKeypair()
+
+
   const cipherID = await debayContract.submitEntry(encryptedKey, price, testUrl, {
     // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
     maxPriorityFeePerGas: priorityFee
   });
 
+  let evmPoint = null;
+  if (medusa?.keypair) {
+    const { x, y } = medusa.keypair.pubkey.toEvm()
+    evmPoint = { x, y }
+  }
+
   console.log(`CipherID ${cipherID}`);
-  const { private, public } = await medusa.generateKeypair();
-  price = await debayContract.itemToPrice(cipherId);
-  const requestID = await debayContract.buyEntry(cipherID, public.toEvm(), {
+
+  console.log(evmPoint);
+
+  // Get evm point from the key pair of medusa
+
+  // Create key pair
+  // price = await debayContract.itemToPrice(cipherID);
+  const requestID = await debayContract.buyEntry(cipherID, evmPoint, {
     value: price,
     maxPriorityFeePerGas: priorityFee
   });
-  console.log(`RequestID ${requestId}`);
+  console.log(`RequestID ${requestID}`);
 
 }
+
+
+
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
