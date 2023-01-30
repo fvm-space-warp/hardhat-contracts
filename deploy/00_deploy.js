@@ -29,11 +29,10 @@ async function callRpc(method, params) {
 
 const deployer = new ethers.Wallet(DEPLOYER_PRIVATE_KEY)
 
-module.exports = async ({ deployments }) => {
-    const { deploy } = deployments
+const main = async () => {
 
     const priorityFee = await callRpc("eth_maxPriorityFeePerGas")
-    
+
     // Wraps Hardhat's deploy, logging errors to console.
     const deployLogError = async (title, obj) => {
         let ret;
@@ -48,31 +47,30 @@ module.exports = async ({ deployments }) => {
 
     console.log("Wallet Ethereum Address:", deployer.address)
     const chainId = network.config.chainId
+    /*
     const tokenToBeMinted = networkConfig[chainId]["tokenToBeMinted"]
 
+    const SimpleCoin = await hre.ethers.getContractFactory("SimpleCoin");
+    const simplecoin = await SimpleCoin.deploy(tokenToBeMinted,{
+      maxPriorityFeePerGas: priorityFee
+    });
+    console.log(`Token at ${simplecoin.address}`)
 
-    await deployLogError("SimpleCoin", {
-        from: deployer.address,
-        args: [tokenToBeMinted],
-        // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
-        maxPriorityFeePerGas: priorityFee,
-        log: true,
-    })
+    const FilecoinMarketConsumer = await hre.ethers.getContractFactory("FilecoinMarketConsumer");
+    const marketconsumer = await FilecoinMarketConsumer.deploy({
+      maxPriorityFeePerGas: priorityFee
+    });
+    console.log(`MarketConsumer at ${marketconsumer.address}`)
+    */
+    const DealRewarder = await hre.ethers.getContractFactory("DealRewarder");
+    const dealrewarder = await DealRewarder.deploy({
+      maxPriorityFeePerGas: priorityFee
+    });
+    console.log(`DealRewarder at ${dealrewarder.address}`)
 
-    await deployLogError("FilecoinMarketConsumer", {
-        from: deployer.address,
-        args: [],
-        // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
-        maxPriorityFeePerGas: priorityFee,
-        log: true,
-    })
-
-    await deployLogError("DealRewarder", {
-        from: deployer.address,
-        args: [],
-        // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
-        maxPriorityFeePerGas: priorityFee,
-        log: true,
-    })
 }
 
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

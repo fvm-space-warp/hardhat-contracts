@@ -7,9 +7,9 @@ import {MarketTypes} from "../lib/filecoin-solidity/contracts/v0.8/types/MarketT
 import {Actor, HyperActor} from "../lib/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
 import {Misc} from "../lib/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
 
-/* 
+/*
 Contract Usage
-    Step   |   Who   |    What is happening  |   Why 
+    Step   |   Who   |    What is happening  |   Why
     ------------------------------------------------
     Deploy | contract owner   | contract owner deploys address is owner who can call addCID  | create contract setting up rules to follow
     AddCID | data pinners     | set up cids that the contract will incentivize in deals      | add request for a deal in the filecoin network, "store data" function
@@ -49,8 +49,8 @@ contract DealRewarder {
         uint64 provider,
         uint256 size
     ) public {
-        require(cidSet[cidraw], "cid must be added before authorizing");
-        require(cidSizes[cidraw] == size, "data size must match expected");
+        //require(cidSet[cidraw], "cid must be added before authorizing");
+        //require(cidSizes[cidraw] == size, "data size must match expected");
         require(
             policyOK(cidraw, provider),
             "deal failed policy check: has provider already claimed this cid?"
@@ -108,7 +108,7 @@ contract DealRewarder {
         bytes memory emptyParams = "";
         delete emptyParams;
 
-        uint256 oneFIL = 1000000000000000000;
+        uint256 oneFIL = 0;
         HyperActor.call_actor_id(
             METHOD_SEND,
             oneFIL,
