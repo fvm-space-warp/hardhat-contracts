@@ -1,172 +1,165 @@
-// // SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 
-// pragma solidity ^0.8.17;
+pragma solidity ^0.8.17;
 
-// import {MarketAPI} from "./lib/filecoin-solidity/contracts/v0.8/MarketAPI.sol";
-// import {CommonTypes} from "./lib/filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
-// import {MarketTypes} from "./lib/filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
-// import {Actor, HyperActor} from "./lib/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
-// import {Misc} from "./lib/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
+import {MarketAPI} from "./lib/filecoin-solidity/contracts/v0.8/MarketAPI.sol";
+import {CommonTypes} from "./lib/filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
+import {MarketTypes} from "./lib/filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
+import {Actor, HyperActor} from "./lib/filecoin-solidity/contracts/v0.8/utils/Actor.sol";
+import {Misc} from "./lib/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
 
-// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-// import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
-// import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-// import "@openzeppelin/contracts/governance/utils/Votes.sol";
-// import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import "@openzeppelin/contracts/governance/utils/Votes.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-// import "./InterfacesMedusa.sol";
+import "./InterfacesMedusa.sol";
 
-// contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
-//     IEncryptionOracle public oracle;
+contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
+    IEncryptionOracle public oracle;
 
-//     mapping(bytes => bool) public cidSet;
-//     mapping(bytes => uint256) public cidSizes;
-//     mapping(bytes => mapping(uint64 => bool)) public cidProviders;
+    mapping(bytes => bool) public cidSet;
+    mapping(bytes => uint256) public cidSizes;
+    mapping(bytes => uint256) cidToCipher;
 
-//     mapping(address => mapping(bytes => uint256)) public pendingAccessRequests;
+    mapping(bytes => mapping(uint64 => bool)) public cidProviders;
 
-//     event EntryDecryption(uint256 indexed requestId, ReencryptedCipher ciphertext);
+    mapping(address => mapping(bytes => uint256)) public pendingAccessRequests;
 
-//     mapping(bytes => mapping(address => bool)) public cipherIdAccess;
+    event EntryDecryption(uint256 indexed requestId, Ciphertext ciphertext);
 
-//     //Relationship between CipherIDs and their CIDS
-//     mapping(bytes32 => bytes) public cipherIds;
+    event AddedCID(bytes, uint256);
 
-//     address public constant CALL_ACTOR_ID = 0xfe00000000000000000000000000000000000005;
-//     uint64 public constant DEFAULT_FLAG = 0x00000000;
-//     uint64 public constant METHOD_SEND = 0;
+    address public constant CALL_ACTOR_ID = 0xfe00000000000000000000000000000000000005;
+    uint64 public constant DEFAULT_FLAG = 0x00000000;
+    uint64 public constant METHOD_SEND = 0;
 
-//     modifier onlyOracle() {
-//         if (msg.sender != address(oracle)) {
-//             revert CallbackNotAuthorized();
-//         }
-//         _;
-//     }
+    modifier onlyOracle() {
+        if (msg.sender != address(oracle)) {
+            revert CallbackNotAuthorized();
+        }
+        _;
+    }
 
-//     constructor(IEncryptionOracle _medusaOracle)
-//         ERC20("DataToken", "DATA")
-//         ERC20Permit("DataToken")
-//     {
-//         oracle = _medusaOracle;
-//     }
+    constructor(IEncryptionOracle _medusaOracle)
+        ERC20("DataToken", "DATA")
+        ERC20Permit("DataToken")
+    {
+        oracle = _medusaOracle;
+    }
 
-//     function fund() external payable {
-//         // 1 -1 conversion for voting power
-//         _mint(msg.sender, msg.value);
-//     }
+    function fund() external payable {
+        // 1 -1 conversion for voting power
+        _mint(msg.sender, msg.value);
+    }
 
-//     // All these CIDS will be for encrypted Files
-//     function addCID(bytes calldata cidraw, uint256 size) external onlyOwner {
-//         cidSet[cidraw] = true;
-//         cidSizes[cidraw] = size;
-//     }
+    // All these CIDS will be for encrypted Files
+    function addCID(
+        bytes calldata cidraw,
+        uint256 size,
+        Ciphertext calldata cipher,
+        string calldata uri
+    ) external onlyOwner {
+        uint256 cipherId = oracle.submitCiphertext(cipher, bytes(uri), msg.sender);
+        cidToCipher[cidraw] = cipherId;
+        cidSet[cidraw] = true;
+        cidSizes[cidraw] = size;
 
-//     // function to check if a provider has already claimed a CID
-//     function _policyOK(bytes memory cidraw, uint64 provider) internal view returns (bool) {
-//         bool alreadyStoring = cidProviders[cidraw][provider];
-//         return !alreadyStoring;
-//     }
+        emit AddedCID(cidraw, cipherId);
+    }
 
-//     // These cipherIds are the encryptions of specific messages
-//     // We will offchain get the cipherIds and CID
+    // function to check if a provider has already claimed a CID
+    function _policyOK(bytes memory cidraw, uint64 provider) internal view returns (bool) {
+        bool alreadyStoring = cidProviders[cidraw][provider];
+        return !alreadyStoring;
+    }
 
-//     // function grantAccess(address _address, uint256 cipherId) external onlyOwner {
-//     //     cipherIdAccess[bytes(abi.encodePacked(cipherId))][_address] = true;
-//     // }
+    function requestDecryption(uint256 cipherId, G1Point calldata buyerPublicKey)
+        external
+        payable
+        returns (uint256)
+    {
+        require(
+            ERC20(address(this)).balanceOf(msg.sender) > 0 || msg.value > 1,
+            "Not given access"
+        );
+        uint256 requestId = oracle.requestReencryption(cipherId, buyerPublicKey);
+        return requestId;
+    }
 
-//     // function revokeAccess(address _address, uint256 cipherId) external onlyOwner {
-//     //     cipherIdAccess[bytes(abi.encodePacked(cipherId))][_address] = false;
-//     // }
+    // function to authorize a deal for a CID
+    function _authorizeData(
+        bytes memory cidraw,
+        uint64 provider,
+        uint256 size
+    ) internal {
+        require(cidSet[cidraw], "CID must be added before authorizing");
+        require(cidSizes[cidraw] == size, "Data size must match expected");
+        require(
+            _policyOK(cidraw, provider),
+            "Deal failed policy check: has provider already claimed this CID?"
+        );
 
-//     function addCipherId(bytes32 cipherId, bytes calldata cid) external onlyOwner {
-//         require(cidSet[cid], "CID not found");
-//         cipherIds[cipherId] = cid;
-//     }
+        cidProviders[cidraw][provider] = true;
+    }
 
-//     function requestDecryption(uint256 cipherId, G1Point calldata buyerPublicKey)
-//         external payable
-//         returns (uint256)
-//     {
-//         require(ERC20(address(this)).balanceOf(msg.sender)>0 || msg.value>1, "Not given access");
-//         uint256 requestId = oracle.requestReencryption(cipherId, buyerPublicKey);
-//         return requestId;
-//     }
+    // function to claim a bounty for a deal
+    function claimBounty(uint64 dealId) public {
+        MarketTypes.GetDealDataCommitmentReturn memory commitmentRet = MarketAPI
+            .getDealDataCommitment(MarketTypes.GetDealDataCommitmentParams({id: dealId}));
+        MarketTypes.GetDealProviderReturn memory providerRet = MarketAPI.getDealProvider(
+            MarketTypes.GetDealProviderParams({id: dealId})
+        );
 
-//     // function to authorize a deal for a CID
-//     function _authorizeData(
-//         bytes memory cidraw,
-//         uint64 provider,
-//         uint256 size
-//     ) internal {
-//         require(cidSet[cidraw], "CID must be added before authorizing");
-//         require(cidSizes[cidraw] == size, "Data size must match expected");
-//         require(
-//             _policyOK(cidraw, provider),
-//             "Deal failed policy check: has provider already claimed this CID?"
-//         );
+        _authorizeData(commitmentRet.data, providerRet.provider, commitmentRet.size);
 
-//         cidProviders[cidraw][provider] = true;
-//     }
+        MarketTypes.GetDealClientReturn memory clientRet = MarketAPI.getDealClient(
+            MarketTypes.GetDealClientParams({id: dealId})
+        );
 
-//     // function to claim a bounty for a deal
-//     function claimBounty(uint64 dealId) public {
-//         MarketTypes.GetDealDataCommitmentReturn memory commitmentRet = MarketAPI
-//             .getDealDataCommitment(MarketTypes.GetDealDataCommitmentParams({id: dealId}));
-//         MarketTypes.GetDealProviderReturn memory providerRet = MarketAPI.getDealProvider(
-//             MarketTypes.GetDealProviderParams({id: dealId})
-//         );
+        // MarketTypes.GetDealEpochPriceReturn memory pricePerEpoch = MarketAPI.getDealTotalPrice(
+        //     MarketTypes.GetDealEpochPriceParams({id: dealId})
+        // );
 
-//         _authorizeData(commitmentRet.data, providerRet.provider, commitmentRet.size);
+        uint256 reward = 1; // TBD  if there is a way to get the price per epoch and the amount of epochs
 
-//         MarketTypes.GetDealClientReturn memory clientRet = MarketAPI.getDealClient(
-//             MarketTypes.GetDealClientParams({id: dealId})
-//         );
+        _sendReward(clientRet.client, reward);
+    }
 
-//         // MarketTypes.GetDealEpochPriceReturn memory pricePerEpoch = MarketAPI.getDealTotalPrice(
-//         //     MarketTypes.GetDealEpochPriceParams({id: dealId})
-//         // );
+    function _sendReward(uint64 actorID, uint256 reward) internal {
+        bytes memory emptyParams = "";
+        delete emptyParams;
 
-//         uint256 reward = 1; // TBD  if there is a way to get the price per epoch and the amount of epochs
+        HyperActor.call_actor_id(
+            METHOD_SEND,
+            reward,
+            DEFAULT_FLAG,
+            Misc.NONE_CODEC,
+            emptyParams,
+            actorID
+        );
+    }
 
-//         _sendReward(clientRet.client, reward);
-//     }
+    function oracleResult(uint256 requestId, Ciphertext calldata cipher) external onlyOracle {
+        emit EntryDecryption(requestId, cipher);
+    }
 
-//     function _sendReward(uint64 actorID, uint256 reward) internal {
-//         bytes memory emptyParams = "";
-//         delete emptyParams;
+    // The functions below are overrides required by Solidity for Governor implementation
 
-//         HyperActor.call_actor_id(
-//             METHOD_SEND,
-//             reward,
-//             DEFAULT_FLAG,
-//             Misc.NONE_CODEC,
-//             emptyParams,
-//             actorID
-//         );
-//     }
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override(ERC20, ERC20Votes) {
+        super._afterTokenTransfer(from, to, amount);
+    }
 
-//     function oracleResult(uint256 requestId, ReencryptedCipher calldata cipher)
-//         external
-//         onlyOracle
-//     {
-//         emit EntryDecryption(requestId, cipher);
-//     }
+    function _mint(address to, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._mint(to, amount);
+    }
 
-//     // The functions below are overrides required by Solidity for Governor implementation
-
-//     function _afterTokenTransfer(
-//         address from,
-//         address to,
-//         uint256 amount
-//     ) internal override(ERC20, ERC20Votes) {
-//         super._afterTokenTransfer(from, to, amount);
-//     }
-
-//     function _mint(address to, uint256 amount) internal override(ERC20, ERC20Votes) {
-//         super._mint(to, amount);
-//     }
-
-//     function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
-//         super._burn(account, amount);
-//     }
-// }
+    function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._burn(account, amount);
+    }
+}

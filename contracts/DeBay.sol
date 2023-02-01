@@ -8,6 +8,8 @@ contract DeBay is IEncryptionClient, Ownable {
     /// the address of the Medusa oracle
     IEncryptionOracle public oracle;
 
+    event CipherId(uint256 cipherId);
+
     /// mapping recording the price of each item referenced by its cipher ID
     mapping(uint256 => uint256) itemToPrice;
 
@@ -32,6 +34,7 @@ contract DeBay is IEncryptionClient, Ownable {
     ) external returns (uint256) {
         uint256 cipherId = oracle.submitCiphertext(cipher, bytes(uri), msg.sender);
         itemToPrice[cipherId] = price;
+        emit CipherId(cipherId);
         return cipherId;
     }
 
@@ -43,10 +46,10 @@ contract DeBay is IEncryptionClient, Ownable {
         payable
         returns (uint256)
     {
-        uint256 price = itemToPrice[cipherId];
-        if (msg.value < price) {
-            revert InsufficentFunds();
-        }
+        // uint256 price = itemToPrice[cipherId];
+        // if (msg.value < price) {
+        //     revert InsufficentFunds();
+        // }
         uint256 requestId = oracle.requestReencryption(cipherId, buyerPublicKey);
         return requestId;
     }

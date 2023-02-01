@@ -39,7 +39,7 @@ const medusaAddress = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
 const provider = new providers.JsonRpcProvider("https://api.hyperspace.node.glif.io/rpc/v1");
 const signer = new ethers.Wallet(PRIVATE_KEY).connect(provider);
 // applicationAddress is the dApp contract address for which you are encrypting.
-const applicationAddress = "0x6eFA7a4c3aeEcE2C7a6ee91C17c5b3e3590c5A7F"
+const applicationAddress = "0xAA30f3bd0D708962EaE59715BbDfD69D642c2A9e"
 const main = async () => {
   const priorityFee = await callRpc("eth_maxPriorityFeePerGas")
 
@@ -62,10 +62,39 @@ const main = async () => {
   await medusa.signForKeypair()
 
 
-  const cipherID = await debayContract.submitEntry(encryptedKey, price, testUrl, {
+  let cipherID = '';
+  const tx = await debayContract.submitEntry(encryptedKey, price, testUrl, {
     // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
     maxPriorityFeePerGas: priorityFee
   });
+
+
+  console.log(tx)
+
+
+  await provider.waitForTransaction(tx.hash);
+
+
+  const receipt = await provider.getTransactionReceipt(tx.hash);
+  let abi = ["event CipherId(uint256 cipherId)"];
+  let iface = new ethers.utils.Interface(abi);
+
+  const logTransactionEvent = receipt.logs.filter((log) => {
+    return log.topics[0] === ethers.utils.id("CipherId(uint256)");
+  });
+
+  if (logTransactionEvent.length === 0) {
+    console.log("Transaction does not contain CipherId event");
+  } else {
+    // Decode the log data
+    const log = iface.parseLog(logTransactionEvent[0]);
+    cipherID = log.args[0];
+  }
+
+
+
+
+
 
   let evmPoint = null;
   if (medusa?.keypair) {
@@ -73,7 +102,7 @@ const main = async () => {
     evmPoint = { x, y }
   }
 
-  console.log(`CipherID ${cipherID}`);
+  console.log(`CipherID is  ${cipherID}`);
 
   console.log(evmPoint);
 
