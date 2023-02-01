@@ -50,10 +50,10 @@ const main = async () => {
     console.log("Wallet Ethereum Address:", deployer.address)
     // Hyperspace
     const medusaOracleAddr = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
-    const priorityFee = await callRpc("eth_maxPriorityFeePerGas")
+    const priorityFee = parseInt(await callRpc("eth_maxPriorityFeePerGas"), 16);
 
     const DataDAOFac = await hre.ethers.getContractFactory("DataDAO");
-    const DataDAO = await DataDAOFac.deploy(medusaOracleAddr, {
+    const DataDAO = await DataDAOFac.connect(signer).deploy(medusaOracleAddr, {
         // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
         maxPriorityFeePerGas: priorityFee,
     });
