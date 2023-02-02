@@ -28,6 +28,8 @@ contract DataDAO is ERC20, IEncryptionClient, Ownable {
 
     event AddedCID(bytes, uint256);
 
+    bool fundableDAO;
+
     address public constant CALL_ACTOR_ID = 0xfe00000000000000000000000000000000000005;
     uint64 public constant DEFAULT_FLAG = 0x00000000;
     uint64 public constant METHOD_SEND = 0;
@@ -39,12 +41,27 @@ contract DataDAO is ERC20, IEncryptionClient, Ownable {
         _;
     }
 
-    constructor(IEncryptionOracle _medusaOracle) ERC20("DataToken", "DATA") {
+    constructor(
+        IEncryptionOracle _medusaOracle,
+        bool _fundableDAO,
+        address[] memory votingMembers
+    ) ERC20("DataToken", "DATA") {
         oracle = _medusaOracle;
+        fundableDAO = _fundableDAO;
+
+        if (!_fundableDAO) {
+            for (uint8 i = 0; i < votingMembers.length; i++) {
+                //by default if votingMembers is empty only msg.sender is owner
+                _mint(msg.sender, 1);
+                _mint(votingMembers[i], 1);
+            }
+        }
     }
 
     function fund() external payable {
+        require(fundableDAO, "This datadao is not open");
         // 1 -1 conversion for voting power
+
         _mint(msg.sender, msg.value);
     }
 
