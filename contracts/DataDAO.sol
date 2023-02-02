@@ -155,4 +155,8 @@ contract DataDAO is ERC20, IEncryptionClient, Ownable {
     function oracleResult(uint256 requestId, Ciphertext calldata cipher) external onlyOracle {
         emit EntryDecryption(requestId, cipher);
     }
+
+    receive() external payable {
+        require(!fundableDAO, "Dao is fundable");
+    }
 }
