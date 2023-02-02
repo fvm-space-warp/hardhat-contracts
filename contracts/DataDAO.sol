@@ -9,14 +9,11 @@ import {Actor, HyperActor} from "./lib/filecoin-solidity/contracts/v0.8/utils/Ac
 import {Misc} from "./lib/filecoin-solidity/contracts/v0.8/utils/Misc.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "@openzeppelin/contracts/governance/utils/Votes.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./InterfacesMedusa.sol";
 
-contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
+contract DataDAO is ERC20, IEncryptionClient, Ownable {
     IEncryptionOracle public oracle;
 
     mapping(bytes => bool) public cidSet;
@@ -42,10 +39,7 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
         _;
     }
 
-    constructor(IEncryptionOracle _medusaOracle)
-        ERC20("DataToken", "DATA")
-        ERC20Permit("DataToken")
-    {
+    constructor(IEncryptionOracle _medusaOracle) ERC20("DataToken", "DATA") {
         oracle = _medusaOracle;
     }
 
@@ -143,23 +137,5 @@ contract DataDAO is ERC20, ERC20Permit, ERC20Votes, IEncryptionClient, Ownable {
 
     function oracleResult(uint256 requestId, Ciphertext calldata cipher) external onlyOracle {
         emit EntryDecryption(requestId, cipher);
-    }
-
-    // The functions below are overrides required by Solidity for Governor implementation
-
-    function _afterTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal override(ERC20, ERC20Votes) {
-        super._afterTokenTransfer(from, to, amount);
-    }
-
-    function _mint(address to, uint256 amount) internal override(ERC20, ERC20Votes) {
-        super._mint(to, amount);
-    }
-
-    function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
-        super._burn(account, amount);
     }
 }
