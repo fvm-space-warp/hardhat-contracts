@@ -132,7 +132,7 @@ const main = async () => {
 
     // Create key pair
     // price = await debayContract.itemToPrice(cipherID);
-    const requestID = await DataDAO.buyEntry(cipherID, evmPoint, {
+    const requestID = await DataDAO.requestDecryption(cipherID, evmPoint, {
         value: price,
         maxPriorityFeePerGas: priorityFee
     });
