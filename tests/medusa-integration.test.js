@@ -71,12 +71,13 @@ const main = async () => {
 
 
     const msg = new Uint8Array("Hello World!")
+    console.log(medusa);
     const { encryptedData, encryptedKey } = await medusa.encrypt(msg, applicationAddress);
     console.log(`Data encrypted ${encryptedData}`)
 
 
     let price = ethers.utils.parseEther("1");
-    console.log(`Submiting encrypted data to DeBay`)
+    console.log(`Submiting encrypted data to DataDAO`)
 
 
     await medusa.signForKeypair()
@@ -131,7 +132,7 @@ const main = async () => {
 
     // Create key pair
     // price = await debayContract.itemToPrice(cipherID);
-    const requestID = await debayContract.buyEntry(cipherID, evmPoint, {
+    const requestID = await DataDAO.buyEntry(cipherID, evmPoint, {
         value: price,
         maxPriorityFeePerGas: priorityFee
     });
