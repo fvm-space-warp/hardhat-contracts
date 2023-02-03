@@ -13,7 +13,7 @@ const request = util.promisify(require("request"))
 async function callRpc(method, params) {
     var options = {
         method: "POST",
-        url: "https://api.hyperspace.node.glif.io/rpc/v1",
+        url: "https://filecoin-hyperspace.chainstacklabs.com/rpc/v1",
         // url: "http://localhost:1234/rpc/v0",
         headers: {
             "Content-Type": "application/json",
@@ -35,7 +35,7 @@ async function callRpc(method, params) {
 // const medusaAddress = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
 
 const medusaAddress = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
-const provider = new providers.JsonRpcProvider("https://api.hyperspace.node.glif.io/rpc/v1");
+const provider = new providers.JsonRpcProvider("https://filecoin-hyperspace.chainstacklabs.com/rpc/v1");
 const signer = new ethers.Wallet(PRIVATE_KEY).connect(provider);
 // applicationAddress is the dApp contract address for which you are encrypting.
 const DEPLOYER_PRIVATE_KEY = network.config.accounts[0]
