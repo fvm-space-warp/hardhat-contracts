@@ -1,3 +1,5 @@
+const { Web3Storage, getFilesFromPath } = require('web3.storage')
+const fs = require('node:fs');
 const MedusaPackage = require("@medusa-network/medusa-sdk")
 const providers = require("@ethersproject/providers")
 const ethers = require("ethers");
@@ -8,8 +10,6 @@ require("dotenv").config();
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 
 const request = util.promisify(require("request"))
-
-
 async function callRpc(method, params) {
     var options = {
         method: "POST",
@@ -29,29 +29,23 @@ async function callRpc(method, params) {
     return JSON.parse(res.body).result
 }
 
-
-
-// Filecoin Hyperspace Testnet
-// const medusaAddress = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
-
 const medusaAddress = "0xb0dd3eb2374b21b6efacf41a16e25ed8114734e0";
 const provider = new providers.JsonRpcProvider("https://filecoin-hyperspace.chainstacklabs.com/rpc/v1");
 const signer = new ethers.Wallet(PRIVATE_KEY).connect(provider);
-// applicationAddress is the dApp contract address for which you are encrypting.
 const DEPLOYER_PRIVATE_KEY = network.config.accounts[0]
 
 const deployer = new ethers.Wallet(DEPLOYER_PRIVATE_KEY)
 
 
 const main = async () => {
-
-
-
     console.log("Wallet Ethereum Address:", deployer.address)
     // Hyperspace
-    const priorityFee = parseInt(await callRpc("eth_maxPriorityFeePerGas"), 16);
+    // const priorityFee = parseInt(await callRpc("eth_maxPriorityFeePerGas"), 16);
+    const priorityFee = (await provider.getFeeData()).maxPriorityFeePerGas;
 
-
+    const data = fs.readFileSync('tests/helloworld.txt');
+    const msg = new Uint8Array(data);
+    console.log('data size', msg.length);
 
     const DataDAOFac = await hre.ethers.getContractFactory("DataDAO");
     const DataDAO = await DataDAOFac.connect(signer).deploy(medusaAddress, false, [], {
@@ -63,32 +57,26 @@ const main = async () => {
     console.log(
         `DataDAO deployed to ${DataDAO.address}`
     );
+    fs.writeFileSync('tests/contract-address.txt', Buffer.from(DataDAO.address));
 
     const applicationAddress = DataDAO.address
 
-
     const medusa = await MedusaPackage.Medusa.init(medusaAddress, signer);
+    await medusa.signForKeypair();
 
-
-
-    const msg = new Uint8Array("Hello World!")
-    console.log(medusa);
     const { encryptedData, encryptedKey } = await medusa.encrypt(msg, applicationAddress);
-    console.log(`Data encrypted ${encryptedData}`)
+    console.log('encrypted data size', encryptedData.length);
 
+    console.log('Upload encrypted file to IPFS');
+    const storage = new Web3Storage({ token: process.env.STORAGE_TOKEN })
+    const encryptedFileName = 'tests/helloworld-encrypted.txt';
+    fs.writeFileSync(encryptedFileName, Buffer.from(encryptedData));
+    const cid = await storage.put([{ stream: () => fs.createReadStream(encryptedFileName), name: 'helloworld-encrypted.txt' }]);
+    console.log(`Uploaded file to IPFS: ${cid}`);
 
-    console.log(`Submiting encrypted data to DataDAO`)
-
-
-    await medusa.signForKeypair()
-
-
-    const cid = "bafy2bzacea2t6tjfj3gefjxasg7xqzgpwouwrxfsqxgdsfhftcordnmxcae3y";
-    const randomSize = 1;
-    const testUrl = "ipfs://testCID"
-
-
-
+    console.log(`Submitting encrypted data to DataDAO`);
+    const randomSize = encryptedData.length;
+    const testUrl = `ipfs://${cid}/helloworld-encrypted.txt`;
 
     const uint8Array = Buffer.from(cid, "hex");
 
@@ -97,12 +85,10 @@ const main = async () => {
         maxPriorityFeePerGas: priorityFee
     });
 
-
     await provider.waitForTransaction(tx.hash);
 
     const receipt = await provider.getTransactionReceipt(tx.hash);
 
-    console.log("receipt", receipt);
     let abi = ["event AddedCID(bytes, uint256)"];
     let iface = new ethers.utils.Interface(abi);
 
@@ -128,22 +114,14 @@ const main = async () => {
 
     console.log(`CipherID  ${cipherID}`);
 
-    console.log(evmPoint);
 
-    // Get evm point from the key pair of medusa
-
-    // Create key pair
-    // price = await debayContract.itemToPrice(cipherID);
     const requestID = await DataDAO.requestDecryption(cipherID, evmPoint, {
         // value: price,
         maxPriorityFeePerGas: priorityFee
     });
-    console.log(`RequestID ${requestID}`);
-
+    await provider.waitForTransaction(requestID.hash);
+    console.log("RequestID", requestID);
 }
-
-
-
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
