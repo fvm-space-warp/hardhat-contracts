@@ -48,11 +48,11 @@ contract DataDAO is ERC20, IEncryptionClient, Ownable {
     ) ERC20("DataToken", "DATA") {
         oracle = _medusaOracle;
         fundableDAO = _fundableDAO;
+        _mint(msg.sender, 1);
 
         if (!_fundableDAO) {
             for (uint8 i = 0; i < votingMembers.length; i++) {
                 //by default if votingMembers is empty only msg.sender is owner
-                _mint(msg.sender, 1);
                 _mint(votingMembers[i], 1);
             }
         }

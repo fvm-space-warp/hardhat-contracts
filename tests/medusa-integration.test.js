@@ -34,7 +34,7 @@ async function callRpc(method, params) {
 // Filecoin Hyperspace Testnet
 // const medusaAddress = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
 
-const medusaAddress = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
+const medusaAddress = "0xb0dd3eb2374b21b6efacf41a16e25ed8114734e0";
 const provider = new providers.JsonRpcProvider("https://filecoin-hyperspace.chainstacklabs.com/rpc/v1");
 const signer = new ethers.Wallet(PRIVATE_KEY).connect(provider);
 // applicationAddress is the dApp contract address for which you are encrypting.
@@ -49,11 +49,12 @@ const main = async () => {
 
     console.log("Wallet Ethereum Address:", deployer.address)
     // Hyperspace
-    const medusaOracleAddr = "0xd466a3c66ad402aa296ab7544bce90bbe298f6a0";
     const priorityFee = parseInt(await callRpc("eth_maxPriorityFeePerGas"), 16);
 
+
+
     const DataDAOFac = await hre.ethers.getContractFactory("DataDAO");
-    const DataDAO = await DataDAOFac.connect(signer).deploy(medusaOracleAddr, {
+    const DataDAO = await DataDAOFac.connect(signer).deploy(medusaAddress, false, [], {
         // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
         maxPriorityFeePerGas: priorityFee,
     });
@@ -76,7 +77,6 @@ const main = async () => {
     console.log(`Data encrypted ${encryptedData}`)
 
 
-    let price = ethers.utils.parseEther("1");
     console.log(`Submiting encrypted data to DataDAO`)
 
 
@@ -101,11 +101,13 @@ const main = async () => {
     await provider.waitForTransaction(tx.hash);
 
     const receipt = await provider.getTransactionReceipt(tx.hash);
+
+    console.log("receipt", receipt);
     let abi = ["event AddedCID(bytes, uint256)"];
     let iface = new ethers.utils.Interface(abi);
 
     const logTransactionEvent = receipt.logs.filter((log) => {
-        return log.topics[0] === ethers.utils.id("AddedCID(bytes, uint256)");
+        return log.topics[0] === ethers.utils.id("AddedCID(bytes,uint256)");
     });
 
     let cipherID = '';
@@ -133,7 +135,7 @@ const main = async () => {
     // Create key pair
     // price = await debayContract.itemToPrice(cipherID);
     const requestID = await DataDAO.requestDecryption(cipherID, evmPoint, {
-        value: price,
+        // value: price,
         maxPriorityFeePerGas: priorityFee
     });
     console.log(`RequestID ${requestID}`);
