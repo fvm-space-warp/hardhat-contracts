@@ -29,7 +29,8 @@ async function getAllLogs() {
     const encryptedData = new Uint8Array(data);
     console.log("encrypted data size", encryptedData.length);
 
-    const cipherText = logs[0].args.ciphertext
+    //Getting last log
+    const cipherText = logs[logs.length - 1].args.ciphertext
 
     const decryptedBytes = await medusa.decrypt(cipherText, encryptedData)
 
