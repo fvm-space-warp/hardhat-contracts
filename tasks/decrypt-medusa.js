@@ -14,8 +14,8 @@ async function getAllLogs() {
 
     console.log(`Using contract at ${contractAddress}`);
     console.log("Getting EntryDecryption logs");
-    const debayContract = await hre.ethers.getContractAt("DataDAO", contractAddress);
-    const logs = await debayContract.connect(signer).queryFilter(debayContract.filters.EntryDecryption(), -1000);
+    const DataDAO = await hre.ethers.getContractAt("DataDAO", contractAddress);
+    const logs = await DataDAO.connect(signer).queryFilter(DataDAO.filters.EntryDecryption(), -1000);
 
     if (logs.length === 0) {
         console.error('No logs found!');

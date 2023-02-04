@@ -22,7 +22,7 @@ const deployer = new ethers.Wallet(DEPLOYER_PRIVATE_KEY)
 const main = async () => {
     console.log("Wallet Ethereum Address:", deployer.address)
     // Hyperspace
-    // const priorityFee = parseInt(await callRpc("eth_maxPriorityFeePerGas"), 16);
+    const priorityFee = (await provider.getFeeData()).maxPriorityFeePerGas;
 
     const data = fs.readFileSync('./tests/helloworld.txt');
     const msg = new Uint8Array(data);
@@ -48,8 +48,10 @@ const main = async () => {
     const uri = `ipfs://${cid}/helloworld-encrypted.txt`;
 
     const uint8Array = Buffer.from(cid, "hex");
+    const DataDAO = await hre.ethers.getContractAt("DataDAO", applicationAddress);
 
-    const tx = await DataDAO.addCID(uint8Array, dataSize, encryptedKey, uri, {
+
+    const tx = await DataDAO.connect(signer).addCID(uint8Array, dataSize, encryptedKey, uri, {
         // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
         maxPriorityFeePerGas: priorityFee
     });
