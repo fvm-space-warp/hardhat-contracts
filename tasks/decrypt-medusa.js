@@ -4,11 +4,8 @@ const providers = require("@ethersproject/providers")
 const MedusaPackage = require("@medusa-network/medusa-sdk")
 require("dotenv").config();
 
-
-
-
 async function getAllLogs() {
-    const contractAddress = fs.readFileSync('tests/contract-address.txt').toString();
+    const contractAddress = fs.readFileSync('./constants/contract-address.txt').toString();
     const medusaOracleAddr = "0xb0dd3eb2374b21b6efacf41a16e25ed8114734e0";
 
     const provider = new providers.JsonRpcProvider("https://filecoin-hyperspace.chainstacklabs.com/rpc/v1");
@@ -28,7 +25,7 @@ async function getAllLogs() {
     const medusa = await MedusaPackage.Medusa.init(medusaOracleAddr, signer);
     await medusa.signForKeypair();
 
-    const data = fs.readFileSync('tests/helloworld-encrypted.txt');
+    const data = fs.readFileSync('./tests/helloworld-encrypted.txt');
     const encryptedData = new Uint8Array(data);
     console.log("encrypted data size", encryptedData.length);
 
