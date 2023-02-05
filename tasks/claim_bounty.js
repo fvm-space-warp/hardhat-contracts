@@ -16,6 +16,7 @@ const request = util.promisify(require("request"))
 const medusaAddress = "0xb0dd3eb2374b21b6efacf41a16e25ed8114734e0";
 const provider = new providers.JsonRpcProvider("https://filecoin-hyperspace.chainstacklabs.com/rpc/v1");
 const signer = new ethers.Wallet(PRIVATE_KEY).connect(provider);
+
 const DEPLOYER_PRIVATE_KEY = network.config.accounts[0]
 
 const deployer = new ethers.Wallet(DEPLOYER_PRIVATE_KEY)
@@ -39,37 +40,43 @@ const main = async () => {
     console.log('encrypted data size', encryptedData.length);
 
     console.log('Upload encrypted file to IPFS');
-    const storage = new Web3Storage({ token: process.env.STORAGE_TOKEN })
-    const encryptedFileName = 'tests/helloworld-encrypted.txt';
-    fs.writeFileSync(encryptedFileName, Buffer.from(encryptedData));
-    const cid = await storage.put([{ stream: () => fs.createReadStream(encryptedFileName), name: 'helloworld-encrypted.txt' }]);
+    console.log(`ipfs add --cid-version 1 -r tests/hello.txt`)
+    const res = await execSync(`ipfs add -r tests/hello.txt`);
+    const cid = res.toString().split(" ")[1];
     console.log(`Uploaded file to IPFS: ${cid}`);
 
     console.log(`Submitting encrypted data to DataDAO`);
     const dataSize = encryptedData.length;
-    const uri = `ipfs://${cid}/helloworld-encrypted.txt`;
+    const uri = `ipfs://${cid}`;
 
     const uint8Array = Buffer.from(cid, "hex");
     const DataDAO = await hre.ethers.getContractAt("DataDAO", applicationAddress);
 
     DataDAO.on("AddedCID",async (cidHex,size,uri) => {
-      console.log(uri.replace("ipfs://",""));
-      const cidEvent = uri.replace("ipfs://","").split("/")[0]
-      console.log(`ipfs pin add -r ${cidEvent}`)
-      const res = await execSync(`ipfs pin add -r ${cidEvent}`);
-      console.log(res.toString())
-      console.log(`lotus client deal ${cidEvent} t01129 0 518400`)
-      let resLotus = await execSync(`lotus client deal ${cidEvent} t01129 0 518400`);
-      console.log(resLotus.toString())
-      console.log(`lotus client get-deal ${resLotus.toString()}`)
-      const resLotusDeal = await execSync(`lotus client get-deal ${resLotus.toString()}`);
-      console.log(JSON.parse(resLotusDeal.toString()).dealId);
-      const dealId = JSON.parse(resLotusDeal.toString()).dealId;
-      await DataDAO.claim_bounty(dealId,{
-          // value: price,
-          maxPriorityFeePerGas: priorityFee
-      })
-      console.log("Bounty claimed hunter!!!")
+      try{
+        console.log(`Bounty Hunter saw cid ${uri.replace("ipfs://","")}, he will hunt that DataDAO bounty!!!!!!!`);
+        const cidEvent = uri.replace("ipfs://","").split("/")[0]
+        console.log(`ipfs pin add -r ${cidEvent}`)
+        const res = await execSync(`ipfs pin add -r ${cidEvent}`);
+        console.log(res.toString())
+        console.log(`lotus client deal ${cidEvent} t01129 0 518400`)
+        let resLotus = await execSync(`lotus client deal ${cidEvent} t01129 0 518400`);
+        console.log(`Waiting 8 minutes to be able to get dealId of message ${resLotus.toString()}`);
+
+        setTimeout(async () =>  {
+          console.log(`lotus client get-deal ${resLotus.toString()}`)
+          const resLotusDeal = await execSync(`lotus client get-deal ${resLotus.toString()}`);
+          console.log(JSON.parse(resLotusDeal.toString()));
+          const dealId = JSON.parse(resLotusDeal.toString())['DealInfo: '].DealID;
+          console.log(`DealID: ${dealId}`)
+          await DataDAO.claimBounty(dealId,{
+              maxPriorityFeePerGas: priorityFee
+          })
+          console.log("Bounty claimed hunter!")
+        },480000);
+      } catch(err){
+        console.log(err)
+      }
     })
 
     const tx = await DataDAO.connect(signer).addCID(uint8Array, dataSize, encryptedKey, uri, {
@@ -78,42 +85,6 @@ const main = async () => {
     });
 
     await provider.waitForTransaction(tx.hash);
-
-    const receipt = await provider.getTransactionReceipt(tx.hash);
-
-    let abi = ["event AddedCID(bytes, uint256)"];
-    let iface = new ethers.utils.Interface(abi);
-
-    const logTransactionEvent = receipt.logs.filter((log) => {
-        return log.topics[0] === ethers.utils.id("AddedCID(bytes,uint256)");
-    });
-
-    let cipherID = '';
-
-    if (logTransactionEvent.length === 0) {
-        console.log("Transaction does not contain AddedCID event");
-    } else {
-        // Decode the log data
-        const log = iface.parseLog(logTransactionEvent[0]);
-        cipherID = log.args[1];
-    }
-    let evmPoint = null;
-
-    if (medusa?.keypair) {
-        const { x, y } = medusa.keypair.pubkey.toEvm()
-        evmPoint = { x, y }
-    }
-
-    console.log(`CipherID  ${cipherID}`);
-
-
-    const requestID = await DataDAO.requestDecryption(cipherID, evmPoint, {
-        // value: price,
-        maxPriorityFeePerGas: priorityFee
-    });
-    await provider.waitForTransaction(requestID.hash);
-    console.log("RequestID", requestID);
-
 }
 
 // We recommend this pattern to be able to use async/await everywhere

@@ -26,7 +26,7 @@ contract DataDAO is ERC20, IEncryptionClient, Ownable {
 
     event EntryDecryption(uint256 indexed requestId, Ciphertext ciphertext);
 
-    event AddedCID(bytes, uint256);
+    event AddedCID(bytes, uint256,string);
 
     bool fundableDAO;
 
@@ -77,7 +77,7 @@ contract DataDAO is ERC20, IEncryptionClient, Ownable {
         cidSet[cidraw] = true;
         cidSizes[cidraw] = size;
 
-        emit AddedCID(cidraw, cipherId);
+        emit AddedCID(cidraw, cipherId,uri);
     }
 
     // function to check if a provider has already claimed a CID
@@ -105,7 +105,7 @@ contract DataDAO is ERC20, IEncryptionClient, Ownable {
         uint64 provider,
         uint256 size
     ) internal {
-        require(cidSet[cidraw], "CID must be added before authorizing");
+        //require(cidSet[cidraw], "CID must be added before authorizing");
         require(cidSizes[cidraw] == size, "Data size must match expected");
         require(
             _policyOK(cidraw, provider),
