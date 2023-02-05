@@ -19,7 +19,7 @@ We can encrypt and decrypt with medusa controlling the access control for only t
 We can deploy the DataDAO contract with the following commands:
 
 ```
-yarn hardhat run deploy-data-dao.js
+yarn hardhat run tasks/deploy-data-dao.js
 ```
 
 We can encrypt with task

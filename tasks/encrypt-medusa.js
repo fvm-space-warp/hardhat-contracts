@@ -6,8 +6,6 @@ const ethers = require("ethers");
 const { expect } = require("chai");
 const hre = require("hardhat");
 const util = require("util");
-const { execSync } = require('node:child_process')
-
 require("dotenv").config();
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
@@ -32,33 +30,7 @@ const submitToDataDao = async (encryptedData, encryptedKey, priorityFee, cid, Da
     const dataSize = encryptedData.length;
     const uri = `ipfs://${cid}/helloworld-encrypted.txt`;
 
-<<<<<<< HEAD
-    const uint8Array = Buffer.from(cid, "hex");
-    const DataDAO = await hre.ethers.getContractAt("DataDAO", applicationAddress);
-
-    DataDAO.on("AddedCID",async (cidHex,size,uri) => {
-      console.log(uri.replace("ipfs://",""));
-      const cidEvent = uri.replace("ipfs://","").split("/")[0]
-      console.log(`ipfs pin add -r ${cidEvent}`)
-      const res = await execSync(`ipfs pin add -r ${cidEvent}`);
-      console.log(res.toString())
-      console.log(`lotus client deal ${cidEvent} t01129 0 518400`)
-      let resLotus = await execSync(`lotus client deal ${cidEvent} t01129 0 518400`);
-      console.log(resLotus.toString())
-      console.log(`lotus client get-deal ${resLotus.toString()}`)
-      const resLotusDeal = await execSync(`lotus client get-deal ${resLotus.toString()}`);
-      console.log(JSON.parse(resLotusDeal.toString()).dealId);
-      const dealId = JSON.parse(resLotusDeal.toString()).dealId;
-      await DataDAO.claim_bounty(dealId,{
-          // value: price,
-          maxPriorityFeePerGas: priorityFee
-      })
-      console.log("Bounty claimed hunter!!!")
-    })
-
-=======
     const uint8Array = Buffer.from(cid, 'hex');
->>>>>>> 0fed0d7e04bd05a48aa6c9c04914bf581402920e
     const tx = await DataDAO.connect(signer).addCID(uint8Array, dataSize, encryptedKey, uri, {
         // maxPriorityFeePerGas to instruct hardhat to use EIP-1559 tx format
         maxPriorityFeePerGas: priorityFee
@@ -93,10 +65,6 @@ const requestDecryption = async (cipherID, medusa, priorityFee, DataDAO) => {
         maxPriorityFeePerGas: priorityFee
     });
     await provider.waitForTransaction(requestID.hash);
-<<<<<<< HEAD
-    console.log("RequestID", requestID);
-
-=======
 
     return requestID;
 }
@@ -141,7 +109,6 @@ const main = async () => {
     console.log('Requesting decryption key for data');
     const requestID = await requestDecryption(cipherID, medusa, priorityFee, DataDAO);
     console.log('RequestID', requestID);
->>>>>>> 0fed0d7e04bd05a48aa6c9c04914bf581402920e
 }
 
 // We recommend this pattern to be able to use async/await everywhere
