@@ -39,13 +39,13 @@ const main = async () => {
     const { encryptedData, encryptedKey } = await medusa.encrypt(msg, applicationAddress);
     console.log('encrypted data size', encryptedData.length);
 
-    console.log('Upload encrypted file to IPFS');
-    console.log(`ipfs add --cid-version 1 -r tests/hello.txt`)
+    console.log('Upload file to IPFS');
+    console.log(`ipfs add -r tests/hello.txt`)
     const res = await execSync(`ipfs add -r tests/hello.txt`);
     const cid = res.toString().split(" ")[1];
     console.log(`Uploaded file to IPFS: ${cid}`);
 
-    console.log(`Submitting encrypted data to DataDAO`);
+    console.log(`Submitting data to DataDAO`);
     const dataSize = encryptedData.length;
     const uri = `ipfs://${cid}`;
 

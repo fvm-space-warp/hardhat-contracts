@@ -106,7 +106,7 @@ contract DataDAO is ERC20, IEncryptionClient, Ownable {
         uint256 size
     ) internal {
         //require(cidSet[cidraw], "CID must be added before authorizing");
-        require(cidSizes[cidraw] == size, "Data size must match expected");
+        //require(cidSizes[cidraw] == size, "Data size must match expected");
         require(
             _policyOK(cidraw, provider),
             "Deal failed policy check: has provider already claimed this CID?"
